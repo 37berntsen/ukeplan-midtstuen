@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* Behold din eksisterende CSS her */
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --danger: #ef4444; --success: #16a34a; --white: #ffffff; --border: #cbd5e1; }
         body, html { height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
         .app-container { display: flex; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; gap: 15px; }
@@ -69,23 +68,6 @@
     </div>
 </div>
 
-<div id="editSubjectModal" class="custom-modal">
-    <h2 style="margin-top:0;">Rediger Fag</h2>
-    <div style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
-        <label>Fagnavn: <input type="text" id="editSubName" style="width:100%; padding:8px;"></label>
-        <label>Farge: <input type="color" id="editSubColor" style="width:100%; height:40px; border:none;"></label>
-        <label style="display:flex; gap:10px; align-items:center;">
-            <input type="checkbox" id="editSubNeedsRoom"> Trenger romvalg
-        </label>
-    </div>
-    <div style="display: flex; gap: 10px; margin-top: 25px;">
-        <button class="btn btn-primary" style="flex:1" onclick="saveSubjectEdit()">Lagre</button>
-        <button class="btn btn-outline" style="flex:1" onclick="closeModals()">Avbryt</button>
-    </div>
-</div>
-
-<div id="copyPrompt" style="position: fixed; z-index: 10000; background: var(--success); color: white; padding: 15px 25px; border-radius: 40px; font-size: 14px; font-weight: 900; display: none; box-shadow: 0 8px 20px rgba(0,0,0,0.2); border: 2px solid white; cursor: pointer;" onclick="confirmCopy()">Legg til i neste time også? ⬇️</div>
-
 <div class="app-container">
     <div class="top-nav no-print">
         <div class="nav-group">
@@ -98,7 +80,6 @@
         </div>
         <div class="nav-group">
             <span id="saveStatus" style="font-size: 12px; color: #64748b;">Laster...</span>
-            <button class="btn btn-outline" onclick="exportBackup()">Lagre fil</button>
             <button class="btn btn-danger" onclick="resetToFactory()">Nullstill</button>
             <button class="btn btn-success" onclick="window.print()">🖨️ LAG PDF</button>
         </div>
@@ -150,36 +131,34 @@
 
 <script>
     // --- SUPABASE KONFIGURASJON ---
-    const SB_URL = 'https://jmicsvwgscyvtpeeimqk.supabase.co'; 
+    const SB_URL = 'https://jmicsvwgwcyvtpeeimqk.supabase.co'; 
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptaWNzdndnc2N5dnRwZWVpbXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODkzMjEsImV4cCI6MjA4MzQ2NTMyMX0.CN7U6lkWeMp6G2TVgJsEd9BBVVUGMQLk9hrigS_7Kzw';
-    const supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    // Endret variabelnavn fra 'supabase' til 'db' for å unngå redeclaration-feil
+    const db = supabase.createClient(SB_URL, SB_KEY);
 
     const slotsTemplate = [{t: "08:30-09:15"}, {t: "09:15-10:00"}, {t: "10:00-10:15", p: "PAUSE"}, {t: "10:15-11:00"}, {t: "11:00-11:45"}, {t: "11:45-12:15", p: "LUNSJ"}, {t: "12:15-13:00"}, {t: "13:00-13:45"}, {t: "13:45-14:00", p: "PAUSE"}, {t: "14:00-14:45"}, {t: "14:45-15:30"}];
-
     let store = {};
-    let currentTab = 'class', dragData = null, pendingRoomTarget = null, copyTarget = null, editingSubIndex = null;
+    let currentTab = 'class', dragData = null, pendingRoomTarget = null;
 
     async function init() {
         document.getElementById('saveStatus').innerText = "Henter data...";
-        const { data, error } = await supabase.from('timetables').select('data').eq('id', 1).single();
-        
-        if (data) {
-            store = data.data;
-        } else {
-            // Første gang oppsett
-            store = { 
-                currentPlanId: "9A", 
-                globalSubjects: [], 
-                globalTeachers: [], 
-                plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } 
-            };
+        try {
+            const { data, error } = await db.from('timetables').select('data').eq('id', 1).single();
+            if (data && data.data) {
+                store = data.data;
+            } else {
+                store = { currentPlanId: "9A", globalSubjects: [], globalTeachers: [], plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } };
+            }
+            renderGlobalLists();
+            renderPlanSelector();
+            loadPlan(store.currentPlanId);
+            setupDragEvents();
+            document.getElementById('saveStatus').innerText = "Skyen er synkronisert";
+        } catch (e) {
+            console.error(e);
+            document.getElementById('saveStatus').innerText = "Tilkoblingsfeil!";
         }
-        
-        renderGlobalLists();
-        renderPlanSelector();
-        loadPlan(store.currentPlanId);
-        setupDragEvents();
-        document.getElementById('saveStatus').innerText = "Skyen er synkronisert";
     }
 
     async function persistData() {
@@ -194,24 +173,13 @@
         
         document.querySelectorAll('.dropzone').forEach(z => {
             const ts = Array.from(z.querySelectorAll('.teacher-chip')).map(c => c.firstChild.textContent);
-            plan.cells.push({ 
-                s: z.querySelector('.subject-display').innerText, 
-                r: z.querySelector('.room-label').innerText, 
-                t: ts, 
-                bg: z.style.backgroundColor 
-            });
+            plan.cells.push({ s: z.querySelector('.subject-display').innerText, r: z.querySelector('.room-label').innerText, t: ts, bg: z.style.backgroundColor });
         });
 
-        const { error } = await supabase.from('timetables').upsert({ id: 1, data: store });
-        if(error) {
-            console.error(error);
-            document.getElementById('saveStatus').innerText = "Feil ved lagring!";
-        } else {
-            document.getElementById('saveStatus').innerText = "Lagret i skyen";
-        }
+        const { error } = await db.from('timetables').upsert({ id: 1, data: store });
+        document.getElementById('saveStatus').innerText = error ? "Feil ved lagring!" : "Lagret i skyen ✅";
     }
 
-    // --- HJELPEFUNKSJONER (Beholdt fra original, men kaller persistData) ---
     function setTab(type) {
         currentTab = type;
         document.getElementById('tabClass').classList.toggle('active', type === 'class');
@@ -238,7 +206,7 @@
                     const td = document.createElement('td'); td.className = "dropzone";
                     const saved = (plan.cells && plan.cells[cellIdx]) ? plan.cells[cellIdx] : {s:'', t:[], bg:'', r:''};
                     td.style.backgroundColor = saved.bg || '';
-                    let tHtml = (saved.t || []).map(t => `<span class="teacher-chip">${t}<span class="remove-chip no-print" onclick="removeTeacher(this)">✕</span></span>`).join('');
+                    let tHtml = (saved.t || []).map(t => `<span class="teacher-chip">${t}<span class="remove-chip" onclick="removeTeacher(this)">✕</span></span>`).join('');
                     td.innerHTML = `<div class="subject-display">${saved.s || ''}</div><div class="room-label">${saved.r || ''}</div><div class="teachers-container">${tHtml}</div>${saved.s ? '<span class="no-print" onclick="clearSubject(this)" style="position:absolute; top:2px; right:2px; cursor:pointer;">✕</span>' : ''}`;
                     tr.appendChild(td); cellIdx++;
                 }
@@ -267,18 +235,12 @@
         });
     }
 
-    function applyRoomChoice(r) {
-        updateCellSubject(pendingRoomTarget, dragData.text, dragData.color, r);
-        closeModals();
-        persistData();
-    }
-
-    function updateCellSubject(z, sub, col, room) { 
-        z.querySelector('.subject-display').innerText = sub; 
-        z.querySelector('.room-label').innerText = room; 
-        z.style.backgroundColor = col; 
-        loadPlan(store.currentPlanId); 
-    }
+    function applyRoomChoice(r) { updateCellSubject(pendingRoomTarget, dragData.text, dragData.color, r); closeModals(); persistData(); }
+    function updateCellSubject(z, sub, col, room) { z.querySelector('.subject-display').innerText = sub; z.querySelector('.room-label').innerText = room; z.style.backgroundColor = col; loadPlan(store.currentPlanId); }
+    function closeModals() { document.getElementById('modalOverlay').style.display = 'none'; document.getElementById('roomModal').style.display = 'none'; }
+    function addTeacherToCell(z, n) { const cont = z.querySelector('.teachers-container'); cont.insertAdjacentHTML('beforeend', `<span class="teacher-chip">${n}<span class="remove-chip" onclick="removeTeacher(this)">✕</span></span>`); }
+    function clearSubject(btn) { const td = btn.closest('.dropzone'); td.querySelector('.subject-display').innerText = ""; td.style.backgroundColor = ""; persistData(); }
+    function removeTeacher(btn) { btn.parentElement.remove(); persistData(); }
 
     function addGlobalItem(type) {
         const inp = document.getElementById(type === 'subject' ? 'subInp' : 'teaInp');
@@ -288,26 +250,16 @@
         inp.value = ""; renderGlobalLists(); persistData();
     }
 
-    function createNewPlan() {
-        const n = prompt("Klassenavn:");
-        if(n) {
-            store.plans[n] = { klasse: n, laerer: "", uke: "1", cells: [] };
-            renderPlanSelector();
-            loadPlan(n);
-            persistData();
-        }
-    }
-
     function renderGlobalLists() {
         const sL = document.getElementById('subjectsList'), tL = document.getElementById('teachersList');
         sL.innerHTML = ""; tL.innerHTML = "";
-        store.globalSubjects.forEach((s, idx) => {
+        store.globalSubjects.forEach((s) => {
             const div = document.createElement('div'); div.className = 'item'; div.draggable = true;
             div.ondragstart = () => { dragData = { type: 'subject', text: s.n, color: s.c, needsRoom: s.r }; };
             div.innerHTML = `<div class="color-preview" style="background:${s.c}"></div><span>${s.n}</span>`;
             sL.appendChild(div);
         });
-        store.globalTeachers.forEach(t => {
+        store.globalTeachers.sort().forEach(t => {
             const div = document.createElement('div'); div.className = 'item'; div.draggable = true;
             div.ondragstart = () => { dragData = { type: 'teacher', text: t }; };
             div.innerHTML = `<span>👤 ${t}</span>`;
@@ -315,16 +267,9 @@
         });
     }
 
-    function clearSubject(btn) { 
-        const td = btn.closest('.dropzone'); 
-        td.querySelector('.subject-display').innerText = ""; 
-        td.style.backgroundColor = ""; 
-        persistData(); 
-    }
-
-    function closeModals() { 
-        document.getElementById('modalOverlay').style.display = 'none'; 
-        document.getElementById('roomModal').style.display = 'none'; 
+    function createNewPlan() {
+        const n = prompt("Klassenavn:");
+        if(n) { store.plans[n] = { klasse: n, laerer: "", uke: "1", cells: [] }; renderPlanSelector(); loadPlan(n); persistData(); }
     }
 
     function renderPlanSelector() {
@@ -337,11 +282,7 @@
     }
 
     function switchPlan() { loadPlan(document.getElementById('planSelector').value); }
-    function addTeacherToCell(z, n) { 
-        const cont = z.querySelector('.teachers-container'); 
-        cont.insertAdjacentHTML('beforeend', `<span class="teacher-chip">${n}<span class="remove-chip" onclick="removeTeacher(this)">✕</span></span>`); 
-    }
-    function removeTeacher(btn) { btn.parentElement.remove(); persistData(); }
+    function resetToFactory() { if(confirm("Nullstill alt?")) { store = { currentPlanId: "9A", globalSubjects: [], globalTeachers: [], plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } }; persistData(); location.reload(); } }
 
     window.onload = init;
 </script>
