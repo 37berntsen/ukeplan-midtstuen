@@ -6,7 +6,6 @@
     <title>Midtstuen skole - Ukeplan v11</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --danger: #ef4444; --success: #16a34a; --white: #ffffff; --border: #cbd5e1; }
         body, html { height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
@@ -35,14 +34,10 @@
         .remove-chip { cursor: pointer; margin-left: 5px; font-weight: 900; }
         .item { padding: 10px; margin: 5px 0; border-radius: 8px; cursor: grab; display: flex; align-items: center; border: 1px solid var(--border); background: var(--white); font-size: 12px; font-weight: 800; }
         .color-preview { width: 20px; height: 20px; border-radius: 5px; margin-right: 10px; border: 1px solid rgba(0,0,0,0.1); }
-        .item-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-        .action-btn { cursor: pointer; font-size: 14px; color: #000; opacity: 0.6; transition: 0.2s; }
-        .action-btn:hover { opacity: 1; }
         .btn { border: none; padding: 9px 16px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10500; display: none; backdrop-filter: blur(2px); }
         .custom-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); z-index: 11000; display: none; text-align: center; border: 4px solid var(--primary); width: 350px; }
         @media print {
@@ -51,16 +46,13 @@
             .no-print, .top-nav, .panel, .modal-overlay, .custom-modal, .tab-nav { display: none !important; }
             #printArea { padding: 10mm; border: none; width: 100%; height: 100vh; position: absolute; top:0; left:0; }
             table { height: calc(100% - 140px) !important; border: 3pt solid #000 !important; }
-            .teachers-container { display: none !important; }
         }
     </style>
 </head>
 <body>
-
 <div class="modal-overlay" id="modalOverlay"></div>
-
 <div id="roomModal" class="custom-modal">
-    <h2 id="modalSubjectTitle" style="margin-top:0;">Fagnavn</h2>
+    <h2 id="modalSubjectTitle">Fagnavn</h2>
     <p>Velg rom for denne timen:</p>
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
         <button class="btn btn-primary" onclick="applyRoomChoice('Primærrom')">Primærrom</button>
@@ -72,14 +64,11 @@
     <div class="top-nav no-print">
         <div class="nav-group">
             <h2 style="margin:0; font-weight:900; color:var(--primary);">Midtstuen</h2>
-            <div style="display:flex; align-items:center; gap:10px; margin-left:15px;">
-                <span style="font-size:11px; font-weight:800; color:#64748b;">KLASSE:</span>
-                <select id="planSelector" onchange="switchPlan()"></select>
-            </div>
+            <select id="planSelector" onchange="switchPlan()"></select>
             <button class="btn btn-primary" onclick="createNewPlan()">+ Ny Klasse</button>
         </div>
         <div class="nav-group">
-            <span id="saveStatus" style="font-size: 12px; color: #64748b;">Laster...</span>
+            <span id="saveStatus" style="font-size: 12px; color: #64748b;">Henter data...</span>
             <button class="btn btn-danger" onclick="resetToFactory()">Nullstill</button>
             <button class="btn btn-success" onclick="window.print()">🖨️ LAG PDF</button>
         </div>
@@ -87,7 +76,7 @@
 
     <div class="main-grid">
         <div class="panel no-print">
-            <h3 style="margin-top:0;">Fag</h3>
+            <h3>Fag</h3>
             <div style="display: flex; gap: 5px;">
                 <input type="color" id="colInp" value="#bfdbfe" style="width:35px; height:35px; border:none; cursor:pointer;">
                 <input type="text" id="subInp" placeholder="Nytt fag..." style="flex-grow:1; padding:8px; border-radius:8px; border:1px solid var(--border);">
@@ -119,7 +108,7 @@
         </div>
 
         <div class="panel no-print">
-            <h3 style="margin-top:0;">Lærere</h3>
+            <h3>Lærere</h3>
             <div style="display: flex; gap: 5px; margin-bottom: 10px;">
                 <input type="text" id="teaInp" placeholder="Navn..." style="flex-grow:1; padding:8px; border-radius:8px; border:1px solid var(--border);">
                 <button class="btn btn-primary" onclick="addGlobalItem('teacher')">+</button>
@@ -130,11 +119,10 @@
 </div>
 
 <script>
-    // --- SUPABASE KONFIGURASJON ---
     const SB_URL = 'https://jmicsvwgwcyvtpeeimqk.supabase.co'; 
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptaWNzdndnc2N5dnRwZWVpbXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODkzMjEsImV4cCI6MjA4MzQ2NTMyMX0.CN7U6lkWeMp6G2TVgJsEd9BBVVUGMQLk9hrigS_7Kzw';
 
-    // Endret variabelnavn fra 'supabase' til 'db' for å unngå redeclaration-feil
+    // Endret variabelnavn for å unngå redeclaration feil
     const db = supabase.createClient(SB_URL, SB_KEY);
 
     const slotsTemplate = [{t: "08:30-09:15"}, {t: "09:15-10:00"}, {t: "10:00-10:15", p: "PAUSE"}, {t: "10:15-11:00"}, {t: "11:00-11:45"}, {t: "11:45-12:15", p: "LUNSJ"}, {t: "12:15-13:00"}, {t: "13:00-13:45"}, {t: "13:45-14:00", p: "PAUSE"}, {t: "14:00-14:45"}, {t: "14:45-15:30"}];
@@ -142,23 +130,17 @@
     let currentTab = 'class', dragData = null, pendingRoomTarget = null;
 
     async function init() {
-        document.getElementById('saveStatus').innerText = "Henter data...";
         try {
             const { data, error } = await db.from('timetables').select('data').eq('id', 1).single();
-            if (data && data.data) {
-                store = data.data;
-            } else {
-                store = { currentPlanId: "9A", globalSubjects: [], globalTeachers: [], plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } };
-            }
+            if (data && data.data) store = data.data;
+            else store = { currentPlanId: "9A", globalSubjects: [], globalTeachers: [], plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } };
+            
             renderGlobalLists();
             renderPlanSelector();
             loadPlan(store.currentPlanId);
             setupDragEvents();
             document.getElementById('saveStatus').innerText = "Skyen er synkronisert";
-        } catch (e) {
-            console.error(e);
-            document.getElementById('saveStatus').innerText = "Tilkoblingsfeil!";
-        }
+        } catch (e) { document.getElementById('saveStatus').innerText = "Feil ved henting!"; }
     }
 
     async function persistData() {
@@ -241,7 +223,6 @@
     function addTeacherToCell(z, n) { const cont = z.querySelector('.teachers-container'); cont.insertAdjacentHTML('beforeend', `<span class="teacher-chip">${n}<span class="remove-chip" onclick="removeTeacher(this)">✕</span></span>`); }
     function clearSubject(btn) { const td = btn.closest('.dropzone'); td.querySelector('.subject-display').innerText = ""; td.style.backgroundColor = ""; persistData(); }
     function removeTeacher(btn) { btn.parentElement.remove(); persistData(); }
-
     function addGlobalItem(type) {
         const inp = document.getElementById(type === 'subject' ? 'subInp' : 'teaInp');
         if(!inp.value) return;
@@ -249,7 +230,6 @@
         else store.globalSubjects.push({n: inp.value, c: document.getElementById('colInp').value, r: false});
         inp.value = ""; renderGlobalLists(); persistData();
     }
-
     function renderGlobalLists() {
         const sL = document.getElementById('subjectsList'), tL = document.getElementById('teachersList');
         sL.innerHTML = ""; tL.innerHTML = "";
@@ -266,12 +246,10 @@
             tL.appendChild(div);
         });
     }
-
     function createNewPlan() {
         const n = prompt("Klassenavn:");
         if(n) { store.plans[n] = { klasse: n, laerer: "", uke: "1", cells: [] }; renderPlanSelector(); loadPlan(n); persistData(); }
     }
-
     function renderPlanSelector() {
         const sel = document.getElementById('planSelector'); sel.innerHTML = "";
         Object.keys(store.plans).forEach(id => { 
@@ -280,7 +258,6 @@
             sel.appendChild(opt); 
         });
     }
-
     function switchPlan() { loadPlan(document.getElementById('planSelector').value); }
     function resetToFactory() { if(confirm("Nullstill alt?")) { store = { currentPlanId: "9A", globalSubjects: [], globalTeachers: [], plans: { "9A": { klasse: "9A", laerer: "", uke: "1", cells: [] } } }; persistData(); location.reload(); } }
 
