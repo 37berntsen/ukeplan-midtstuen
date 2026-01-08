@@ -150,8 +150,8 @@
 
 <script>
     // --- SUPABASE KONFIGURASJON ---
-    const SB_URL = 'DIN_SUPABASE_URL'; 
-    const SB_KEY = 'DIN_SUPABASE_ANON_KEY';
+    const SB_URL = 'https://jmicsvwgscyvtpeeimqk.supabase.co'; 
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptaWNzdndnc2N5dnRwZWVpbXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODkzMjEsImV4cCI6MjA4MzQ2NTMyMX0.CN7U6lkWeMp6G2TVgJsEd9BBVVUGMQLk9hrigS_7Kzw';
     const supabase = supabase.createClient(SB_URL, SB_KEY);
 
     const slotsTemplate = [{t: "08:30-09:15"}, {t: "09:15-10:00"}, {t: "10:00-10:15", p: "PAUSE"}, {t: "10:15-11:00"}, {t: "11:00-11:45"}, {t: "11:45-12:15", p: "LUNSJ"}, {t: "12:15-13:00"}, {t: "13:00-13:45"}, {t: "13:45-14:00", p: "PAUSE"}, {t: "14:00-14:45"}, {t: "14:45-15:30"}];
